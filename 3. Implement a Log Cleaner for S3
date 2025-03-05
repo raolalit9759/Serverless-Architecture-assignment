@@ -1,0 +1,40 @@
+import boto3
+from datetime import datetime, timezone, timedelta
+
+# Initialize S3 client
+s3 = boto3.client('s3')
+
+S3_BUCKET_NAME = 'abhay-bucket-cleanup'
+
+# Function to calculate the age of each log and delete logs older than 90 days
+def lambda_handler(event, context):
+    # Define the retention period (90 days)
+    retention_period = timedelta(days=90)
+    
+    # Get the current date and time
+    current_time = datetime.now(timezone.utc)
+    
+    # List all objects in the specified bucket
+    response = s3.list_objects_v2(Bucket=S3_BUCKET_NAME)
+    
+    # Check if there are any logs in the bucket
+    if 'Contents' not in response:
+        print("No logs found in the bucket.")
+        return
+    
+    # Loop through each object in the bucket
+    for log in response['Contents']:
+        # Get the last modified date of the object
+        log_last_modified = log['LastModified']
+        
+        # Calculate the age of the object
+        log_age = current_time - log_last_modified
+        
+        # If the log is older than 90 days, delete it
+        if log_age > retention_period:
+            print(f"Deleting log: {log['Key']} (Last Modified: {log_last_modified})")
+            s3.delete_object(Bucket=S3_BUCKET_NAME, Key=log['Key'])
+        else:
+            print(f"Log {log['Key']} is not older than 90 days.")
+
+    print("Log cleanup completed.")
