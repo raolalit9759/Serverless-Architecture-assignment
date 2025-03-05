@@ -1,0 +1,35 @@
+import boto3
+import datetime
+
+def lambda_handler(event, context):
+    # Define the S3 client
+    s3 = boto3.client('s3')
+  
+    bucket_name = 'abhay-bucket-cleanup' 
+    
+    # Get the current date
+    current_date = datetime.datetime.now(datetime.timezone.utc)
+    
+    # Define the cutoff date (files older than 30 days)
+    cutoff_date = current_date - datetime.timedelta(days=30)
+    
+    # List all objects in the bucket
+    objects = s3.list_objects_v2(Bucket=bucket_name)
+    
+    if 'Contents' in objects:
+        for obj in objects['Contents']:
+            # Get the last modified date of the object
+            last_modified_date = obj['LastModified']
+            
+            # Compare the object's date to the cutoff date
+            if last_modified_date < cutoff_date:
+                # If the object is older than 30 days, delete it
+                s3.delete_object(Bucket=bucket_name, Key=obj['Key'])
+                print(f'Deleted {obj["Key"]}')
+            else:
+                print(f'{obj["Key"]} is not older than 30 days')
+    
+    return {
+        'statusCode': 200,
+        'body': 'S3 cleanup completed successfully!'
+    }
