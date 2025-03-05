@@ -1,0 +1,36 @@
+import boto3
+import datetime
+
+def lambda_handler(event, context):
+    ec2 = boto3.client('ec2')
+    
+    volume_id = 'vol-0451b4186b4b37298'
+    
+    # Create a snapshot
+    snapshot = ec2.create_snapshot(VolumeId=volume_id, Description='Automated backup')
+    snapshot_id = snapshot['SnapshotId']
+    print(f"Created snapshot: {snapshot_id}")
+    
+    # Get the current date and set the retention period (30 days)
+    current_date = datetime.datetime.now(datetime.timezone.utc)
+    retention_days = 30
+    retention_date = current_date - datetime.timedelta(days=retention_days)
+    
+    # Describe and delete snapshots older than 30 days for the specified volume
+    snapshots = ec2.describe_snapshots(Filters=[{'Name': 'volume-id', 'Values': [volume_id]}])['Snapshots']
+    
+    for snap in snapshots:
+        start_time = snap['StartTime']
+        snapshot_id = snap['SnapshotId']
+        
+        # Compare snapshot creation time with retention date
+        if start_time < retention_date:
+            ec2.delete_snapshot(SnapshotId=snapshot_id)
+            print(f"Deleted snapshot: {snapshot_id}")
+        else:
+            print(f"Snapshot {snapshot_id} is newer than 30 days, skipping deletion.")
+
+    return {
+        'statusCode': 200,
+        'body': 'Snapshot creation and cleanup process completed!'
+    }
